@@ -466,3 +466,184 @@ def test_rocm_gpu_detection(monkeypatch) -> None:
     assert devices[0]["backend"] == "rocm"
     assert devices[0]["memory_total_mb"] == 2
     assert devices[0]["compute_capability"] == "gfx1151"
+
+
+def test_training_charts_for_gliner_and_fit(
+    client: TestClient,
+    project_factory,
+    tmp_path: Path,
+) -> None:
+    project_id, _, _ = project_factory()
+    _accept_seed(client, project_id, "Training chart sample")
+    snapshot = client.post(f"/api/v1/projects/{project_id}/datasets")
+    assert snapshot.status_code == 201, snapshot.text
+    snapshot_id = snapshot.json()["id"]
+
+    gliner_root = tmp_path / "gliner-job"
+    (gliner_root / "gliner").mkdir(parents=True)
+    (gliner_root / "train.log").write_text("Training: loss=1.0, lr=1e-5\\n", encoding="utf-8")
+    (gliner_root / "gliner" / "gliner_train_report.json").write_text(
+        json.dumps(
+            {
+                "total_steps": 1,
+                "total_epochs": 1,
+                "train_metrics_history": [
+                    {
+                        "loss": 1.0,
+                        "classification_loss": 0.9,
+                        "structure_loss": 0.0,
+                        "count_loss": 0.0,
+                        "learning_rate": 1e-5,
+                        "epoch": 1.0,
+                        "step": 1,
+                        "throughput": 10.0,
+                    }
+                ],
+                "eval_metrics_history": [{"eval_loss": 0.8, "step": 1, "epoch": 1.0}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    fit_root = tmp_path / "fit-job"
+    (fit_root / "calibration").mkdir(parents=True)
+    (fit_root / "calibration" / "fit_report.json").write_text(
+        json.dumps(
+            {
+                "heads": {
+                    "team": {
+                        "fitted": True,
+                        "examples": 10,
+                        "cv_accuracy": 0.9,
+                        "engine_accuracy": 0.8,
+                        "chance": 0.33,
+                        "used_by_auto": True,
+                    }
+                },
+                "calibration": {
+                    "questions": {
+                        "team": {
+                            "temperature": 1.0,
+                            "ece_before": 0.2,
+                            "ece_after": 0.1,
+                        }
+                    }
+                },
+                "n_rows": 10,
+                "n_fit": 8,
+                "n_calibrate": 2,
+                "serving": ["team"],
+                "kept": ["team"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    db = SessionLocal()
+    try:
+        gliner_job = TrainingJob(
+            project_id=project_id,
+            snapshot_id=snapshot_id,
+            target="gliner",
+            mode="finetune",
+            device="cpu",
+            config={},
+            status="completed",
+            stage="completed",
+            log_path=str(gliner_root / "train.log"),
+        )
+        fit_job = TrainingJob(
+            project_id=project_id,
+            snapshot_id=snapshot_id,
+            target="laya",
+            mode="fit",
+            device="cpu",
+            config={},
+            status="completed",
+            stage="completed",
+            log_path=str(fit_root / "train.log"),
+        )
+        db.add_all([gliner_job, fit_job])
+        db.commit()
+        db.refresh(gliner_job)
+        db.refresh(fit_job)
+        gliner_id = gliner_job.id
+        fit_id = fit_job.id
+    finally:
+        db.close()
+
+    gliner_charts = client.get(f"/api/v1/training-jobs/{gliner_id}/charts")
+    assert gliner_charts.status_code == 200, gliner_charts.text
+    keys = {series["key"] for series in gliner_charts.json()["series"]}
+    assert {"loss", "learning_rate", "classification_loss", "throughput", "eval_loss"} <= keys
+
+    fit_charts = client.get(f"/api/v1/training-jobs/{fit_id}/charts")
+    assert fit_charts.status_code == 200, fit_charts.text
+    fit_body = fit_charts.json()
+    assert fit_body["heads"][0]["key"] == "team"
+    assert fit_body["heads"][0]["cvAccuracy"] == 0.9
+    assert fit_body["heads"][0]["eceBefore"] == 0.2
+    assert any("Loss/LR" in warning for warning in fit_body["warnings"])
+
+
+def test_laya_training_charts_read_metrics(
+    client: TestClient,
+    project_factory,
+    tmp_path: Path,
+) -> None:
+    project_id, _, _ = project_factory()
+    _accept_seed(client, project_id, "Laya metrics sample")
+    snapshot = client.post(f"/api/v1/projects/{project_id}/datasets")
+    assert snapshot.status_code == 201, snapshot.text
+    root = tmp_path / "laya-job"
+    (root / "checkpoint").mkdir(parents=True)
+    (root / "train.log").write_text(
+        "epoch 1/2 step 10 loss 0.5000\nepoch 2/2 step 10 loss 0.4000\n",
+        encoding="utf-8",
+    )
+    (root / "checkpoint" / "laya_metrics.json").write_text(
+        json.dumps(
+            {
+                "epoch_loss": [0.5, 0.4],
+                "learning_rate": [
+                    {"step": 1, "values": [2.5e-5, 1e-4]},
+                    {"step": 2, "values": [1.3e-5, 5e-5]},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (root / "checkpoint" / "train_report.json").write_text(
+        json.dumps(
+            {"before": {"loss": 1.0, "accuracy": 0.5}, "after": {"loss": 0.8, "accuracy": 0.7}}
+        ),
+        encoding="utf-8",
+    )
+
+    db = SessionLocal()
+    try:
+        job = TrainingJob(
+            project_id=project_id,
+            snapshot_id=snapshot.json()["id"],
+            target="laya",
+            mode="finetune",
+            device="cpu",
+            config={},
+            status="completed",
+            stage="completed",
+            log_path=str(root / "train.log"),
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+        job_id = job.id
+    finally:
+        db.close()
+
+    charts = client.get(f"/api/v1/training-jobs/{job_id}/charts")
+    assert charts.status_code == 200, charts.text
+    series = {item["key"]: item["points"] for item in charts.json()["series"]}
+    assert len(series["loss"]) == 2
+    assert len(series["loss_step"]) == 2
+    assert len(series["learning_rate_encoder"]) == 2
+    assert len(series["learning_rate_head"]) == 2

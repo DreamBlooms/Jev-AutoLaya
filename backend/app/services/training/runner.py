@@ -188,8 +188,10 @@ def _finetune_command(
 ) -> list[str]:
     settings = get_settings()
     config = payload.config
+    script = Path(__file__).with_name("laya_train_metrics.py")
     command = [
-        settings.resolved_laya_train_bin,
+        settings.resolved_laya_python,
+        str(script),
         "--data",
         str(train_path),
         "--base",
@@ -400,11 +402,14 @@ def run_training_job(job_id: str) -> None:
                 else payload.base_model or get_settings().laya_base_model
             )
             backbone = get_settings().laya_fit_backbone
+        artifact_name = f"{project.name} · {payload.target} · {job.id[:8]}"
+        if payload.mode == "fit" and metrics.get("fit_mode") == "heads_only":
+            artifact_name += " (heads only)"
         artifact = ModelArtifact(
             project_id=project.id,
             training_job_id=job.id,
             target=target,
-            name=f"{project.name} · {payload.target} · {job.id[:8]}",
+            name=artifact_name,
             kind=kind,
             path=str(artifact_path),
             metrics=metrics,

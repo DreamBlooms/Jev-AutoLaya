@@ -80,7 +80,7 @@ Fit and small inference work on CPU. Laya fine-tuning should use a GPU.
 5. Device: auto.
 6. Start training.
 
-Fit uses the training split and ignores epochs, batch, and other fine-tuning parameters.
+Fit uses the training split and ignores epochs, batch, and other fine-tuning parameters. If there are not enough rows to calibrate, Fit falls back to fitting heads only; the artifact name is marked `heads only` and the report warns that more rows are needed for calibrated confidence. If even the minimum head rows are missing, it fails before loading the model with the required count.
 
 ### Dependency
 
@@ -140,6 +140,17 @@ freezeEncoder=true
 The page shows progress, stage, device, artifact path, log path, and errors.
 
 Training can be cancelled. Interrupted training must be restarted.
+
+After completion, click “View training charts” to inspect:
+
+- train and evaluation Loss
+- learning-rate history
+- classification, structure, and count auxiliary losses
+- throughput
+- per-question Fit CV/engine accuracy and calibration ECE
+- before/after Loss, Accuracy, ECE, and Brier for Laya fine-tuning
+
+New Laya fine-tuning runs also record step-level Loss and encoder/head learning rates. Older Laya logs have no LR history, and the page states this explicitly. Available charts depend on what each run recorded.
 
 ## 6. GLiNER Fine-Tuning
 

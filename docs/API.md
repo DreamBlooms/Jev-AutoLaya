@@ -299,6 +299,7 @@ Snapshot response includes split counts and label distribution. Deleting a snaps
 | GET | `/training-jobs/{id}` | Job detail |
 | GET | `/training-jobs/{id}/events` | SSE progress |
 | POST | `/training-jobs/{id}/cancel` | Cancel |
+| GET | `/training-jobs/{id}/charts` | Loss, learning-rate, auxiliary-loss, throughput, and fit/calibration chart data |
 
 ---
 

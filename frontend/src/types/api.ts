@@ -224,6 +224,41 @@ export interface TrainingJob {
   finishedAt: string | null;
 }
 
+export interface TrainingMetricPoint {
+  step: number | null;
+  epoch: number | null;
+  value: number;
+}
+
+export interface TrainingMetricSeries {
+  key: string;
+  points: TrainingMetricPoint[];
+}
+
+export interface TrainingHeadMetrics {
+  key: string;
+  fitted: boolean | null;
+  examples: number | null;
+  cvAccuracy: number | null;
+  engineAccuracy: number | null;
+  chance: number | null;
+  eceBefore: number | null;
+  eceAfter: number | null;
+  temperature: number | null;
+  usedByAuto: boolean | null;
+  reason: string | null;
+}
+
+export interface TrainingCharts {
+  target: string;
+  mode: string;
+  series: TrainingMetricSeries[];
+  summary: Record<string, unknown>;
+  heads: TrainingHeadMetrics[];
+  warnings: string[];
+  logPath: string | null;
+}
+
 export interface EvaluationRun {
   id: string;
   projectId: string;

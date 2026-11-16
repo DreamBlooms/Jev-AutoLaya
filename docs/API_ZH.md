@@ -296,6 +296,7 @@ state,labels,language,difficulty,heldout
 | GET | `/training-jobs/{id}` | 任务详情 |
 | GET | `/training-jobs/{id}/events` | SSE 进度 |
 | POST | `/training-jobs/{id}/cancel` | 取消 |
+| GET | `/training-jobs/{id}/charts` | Loss、学习率、辅助 Loss、吞吐量和 Fit/校准图表数据 |
 
 ---
 

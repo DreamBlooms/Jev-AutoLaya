@@ -18,6 +18,7 @@ import type {
   SampleImportResult,
   SeedImportResult,
   SeedSample,
+  TrainingCharts,
   TrainingJob,
 } from "@/types/api";
 
@@ -389,6 +390,11 @@ export async function listTrainingJobs(projectId: string): Promise<TrainingJob[]
   const response = await client.get<TrainingJob[]>("/training-jobs", {
     params: { projectId },
   });
+  return response.data;
+}
+
+export async function getTrainingCharts(jobId: string): Promise<TrainingCharts> {
+  const response = await client.get<TrainingCharts>(`/training-jobs/${jobId}/charts`);
   return response.data;
 }
 

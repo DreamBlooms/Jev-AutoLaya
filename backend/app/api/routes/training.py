@@ -15,7 +15,8 @@ from sqlalchemy.orm import Session
 from app.core.database import SessionLocal, get_db
 from app.core.errors import ApiError
 from app.models import Project, TrainingJob
-from app.schemas.jobs import TrainingJobOut, TrainingRequest
+from app.schemas.jobs import TrainingChartsOut, TrainingJobOut, TrainingRequest
+from app.services.training.charts import build_training_charts
 from app.services.training.runner import create_training_job
 
 router = APIRouter(tags=["training"])
@@ -54,6 +55,14 @@ def get_training_job(job_id: str, db: Session = Depends(get_db)) -> TrainingJob:
     if job is None:
         raise ApiError(404, "NOT_FOUND", "Training job not found")
     return job
+
+
+@router.get("/training-jobs/{job_id}/charts", response_model=TrainingChartsOut)
+def training_charts(job_id: str, db: Session = Depends(get_db)) -> TrainingChartsOut:
+    job = db.get(TrainingJob, job_id)
+    if job is None:
+        raise ApiError(404, "NOT_FOUND", "Training job not found")
+    return TrainingChartsOut(**build_training_charts(job))
 
 
 @router.get("/training-jobs/{job_id}/events")

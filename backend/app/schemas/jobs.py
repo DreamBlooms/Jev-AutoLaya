@@ -113,6 +113,41 @@ class TrainingJobOut(APIModel):
     finished_at: datetime | None = None
 
 
+class TrainingMetricPoint(APIModel):
+    step: int | None = None
+    epoch: float | None = None
+    value: float
+
+
+class TrainingMetricSeries(APIModel):
+    key: str
+    points: list[TrainingMetricPoint] = Field(default_factory=list)
+
+
+class TrainingHeadOut(APIModel):
+    key: str
+    fitted: bool | None = None
+    examples: int | None = None
+    cv_accuracy: float | None = None
+    engine_accuracy: float | None = None
+    chance: float | None = None
+    ece_before: float | None = None
+    ece_after: float | None = None
+    temperature: float | None = None
+    used_by_auto: bool | None = None
+    reason: str | None = None
+
+
+class TrainingChartsOut(APIModel):
+    target: str
+    mode: str
+    series: list[TrainingMetricSeries] = Field(default_factory=list)
+    summary: dict = Field(default_factory=dict)
+    heads: list[TrainingHeadOut] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    log_path: str | None = None
+
+
 class EvaluationRequest(APIModel):
     project_id: str
     snapshot_id: str

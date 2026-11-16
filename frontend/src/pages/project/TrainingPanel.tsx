@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PlayCircle, StopCircle } from "lucide-react";
+import { ChartNoAxesCombined, PlayCircle, StopCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { apiErrorMessage, cancelTrainingJob, createTrainingJob, getConfig, listSnapshots, listTrainingJobs } from "@/api/client";
 import { JobStatusTag } from "@/components/StatusTag";
+import { TrainingChartsDialog } from "@/components/TrainingChartsDialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export function TrainingPanel({ projectId }: { projectId: string }) {
   const [shuffleOptions, setShuffleOptions] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<TrainingJob | null>(null);
+  const [chartJob, setChartJob] = useState<TrainingJob | null>(null);
 
   const config = useQuery({ queryKey: ["config"], queryFn: getConfig });
   const snapshots = useQuery({ queryKey: ["snapshots", projectId], queryFn: () => listSnapshots(projectId) });
@@ -122,12 +124,13 @@ export function TrainingPanel({ projectId }: { projectId: string }) {
 
       {activeJob ? (
         <Card>
-          <CardHeader className="flex-row items-start justify-between"><div><CardTitle className="flex items-center gap-2">{t("common.job")} <JobStatusTag status={activeJob.status} /></CardTitle><p className="mt-1 text-xs text-muted-foreground">{activeJob.stage}</p></div>{!["completed", "failed", "cancelled"].includes(activeJob.status) ? <Button size="sm" variant="destructive" onClick={() => cancel.mutate(activeJob.id)}><StopCircle /> {t("train.cancel")}</Button> : null}</CardHeader>
+          <CardHeader className="flex-row items-start justify-between"><div><CardTitle className="flex items-center gap-2">{t("common.job")} <JobStatusTag status={activeJob.status} /></CardTitle><p className="mt-1 text-xs text-muted-foreground">{activeJob.stage}</p></div>{activeJob.status === "completed" ? <Button size="sm" variant="outline" onClick={() => setChartJob(activeJob)}><ChartNoAxesCombined /> {t("train.viewCharts")}</Button> : !["failed", "cancelled"].includes(activeJob.status) ? <Button size="sm" variant="destructive" onClick={() => cancel.mutate(activeJob.id)}><StopCircle /> {t("train.cancel")}</Button> : null}</CardHeader>
           <CardContent className="grid gap-3"><Progress value={activeJob.progress} /><div className="grid grid-cols-3 gap-2 text-sm"><div><span className="text-muted-foreground">{t("train.mode")}: </span>{activeJob.mode}</div><div><span className="text-muted-foreground">{t("common.device")}: </span>{activeJob.device}</div><div className="col-span-1 truncate"><span className="text-muted-foreground">{t("train.artifact")}: </span>{activeJob.artifactPath ?? "—"}</div></div>{activeJob.error ? <Alert variant="destructive"><AlertTitle>{activeJob.error}</AlertTitle></Alert> : null}{activeJob.logPath ? <p className="text-xs text-muted-foreground">{t("train.log")}: {activeJob.logPath}</p> : null}</CardContent>
         </Card>
       ) : null}
 
-      <Card><CardHeader><CardTitle>{t("common.job")}</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>{t("common.createdAt")}</TableHead><TableHead>{t("train.target")}</TableHead><TableHead>{t("train.mode")}</TableHead><TableHead>{t("common.status")}</TableHead><TableHead>{t("common.progress")}</TableHead><TableHead className="w-24" /></TableRow></TableHeader><TableBody>{jobs.data?.map((job) => <TableRow key={job.id}><TableCell className="text-xs text-muted-foreground">{formatDate(job.createdAt, i18n.language)}</TableCell><TableCell><Badge>{job.target}</Badge></TableCell><TableCell>{job.mode}</TableCell><TableCell><JobStatusTag status={job.status} /></TableCell><TableCell className="w-40"><Progress value={job.progress} /></TableCell><TableCell><Button size="sm" variant="ghost" onClick={() => setActiveId(job.id)}>{t("common.learnMore")}</Button></TableCell></TableRow>)}</TableBody></Table>{!jobs.data?.length ? <p className="py-8 text-center text-sm text-muted-foreground">{t("train.noJobs")}</p> : null}</CardContent></Card>
+      <Card><CardHeader><CardTitle>{t("common.job")}</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>{t("common.createdAt")}</TableHead><TableHead>{t("train.target")}</TableHead><TableHead>{t("train.mode")}</TableHead><TableHead>{t("common.status")}</TableHead><TableHead>{t("common.progress")}</TableHead><TableHead className="w-24" /></TableRow></TableHeader><TableBody>{jobs.data?.map((job) => <TableRow key={job.id}><TableCell className="text-xs text-muted-foreground">{formatDate(job.createdAt, i18n.language)}</TableCell><TableCell><Badge>{job.target}</Badge></TableCell><TableCell>{job.mode}</TableCell><TableCell><JobStatusTag status={job.status} /></TableCell><TableCell className="w-40"><Progress value={job.progress} /></TableCell><TableCell><div className="flex justify-end gap-1">{job.status === "completed" ? <Button size="sm" variant="ghost" title={t("train.viewCharts")} aria-label={t("train.viewCharts")} onClick={() => setChartJob(job)}><ChartNoAxesCombined /></Button> : null}<Button size="sm" variant="ghost" onClick={() => setActiveId(job.id)}>{t("common.learnMore")}</Button></div></TableCell></TableRow>)}</TableBody></Table>{!jobs.data?.length ? <p className="py-8 text-center text-sm text-muted-foreground">{t("train.noJobs")}</p> : null}</CardContent></Card>
+      <TrainingChartsDialog job={chartJob} onOpenChange={(open) => { if (!open) setChartJob(null); }} />
     </div>
   );
 }
