@@ -1,0 +1,429 @@
+from __future__ import annotations
+
+import io
+import json
+import zipfile
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from app.core.database import SessionLocal
+from app.models import ModelArtifact, TrainingJob
+
+
+def _accept_seed(client: TestClient, project_id: str, text: str) -> str:
+    created = client.post(
+        f"/api/v1/projects/{project_id}/samples",
+        json={
+            "state": {"ticket": text},
+            "labels": {"team": "billing", "urgent": 0.2},
+            "language": "en",
+        },
+    )
+    assert created.status_code == 201, created.text
+    sample_id = created.json()["id"]
+    accepted = client.post(f"/api/v1/samples/{sample_id}/accept", json={})
+    assert accepted.status_code == 200, accepted.text
+    return sample_id
+
+
+def test_sample_templates_and_import(client: TestClient, project_factory) -> None:
+    project_id, _, _ = project_factory()
+
+    jsonl_template = client.get(f"/api/v1/projects/{project_id}/samples/template?format=jsonl")
+    assert jsonl_template.status_code == 200
+    assert "state" in jsonl_template.text
+    assert "jsonl" in jsonl_template.headers["content-disposition"]
+
+    csv_template = client.get(f"/api/v1/projects/{project_id}/samples/template?format=csv")
+    assert csv_template.status_code == 200
+    assert csv_template.text.lstrip("\ufeff").startswith("state,labels")
+
+    jsonl = "\n".join(
+        [
+            json.dumps(
+                {
+                    "state": {"ticket": "Imported JSONL refund"},
+                    "labels": {"team": "billing"},
+                    "language": "en",
+                    "difficulty": "easy",
+                }
+            ),
+            json.dumps(
+                {
+                    "state": {"ticket": "Imported held-out ticket"},
+                    "labels": {"team": "technical"},
+                    "language": "en",
+                    "heldout": True,
+                }
+            ),
+        ]
+    ).encode()
+    imported = client.post(
+        f"/api/v1/projects/{project_id}/samples/import",
+        files={"file": ("samples.jsonl", jsonl, "application/x-ndjson")},
+    )
+    assert imported.status_code == 201, imported.text
+    body = imported.json()
+    assert body["imported"] == 2
+    assert body["heldout"] == 1
+    assert body["samples"][0]["source"] == "import-jsonl"
+    assert body["samples"][1]["meta"]["heldout"] is True
+
+    csv_data = (
+        "\ufeffstate,labels,language,difficulty,heldout\n"
+        '"ticket: CSV imported ticket","{""team"": ""billing""}",zh,medium,false\n'
+    ).encode()
+    imported_csv = client.post(
+        f"/api/v1/projects/{project_id}/samples/import",
+        files={"file": ("samples.csv", csv_data, "text/csv")},
+    )
+    assert imported_csv.status_code == 201, imported_csv.text
+    assert imported_csv.json()["imported"] == 1
+    assert imported_csv.json()["samples"][0]["state"] == {"text": "ticket: CSV imported ticket"}
+
+    invalid = client.post(
+        f"/api/v1/projects/{project_id}/samples/import",
+        files={
+            "file": (
+                "bad.jsonl",
+                b'{"state":{"ticket":"x"},"labels":{"unknown":"x"}}\n',
+                "application/x-ndjson",
+            )
+        },
+    )
+    assert invalid.status_code == 422
+    assert "unknown question keys" in invalid.json()["error"]["message"]
+
+
+def test_snapshot_delete_and_versioning(client: TestClient, project_factory) -> None:
+    project_id, _, _ = project_factory()
+    _accept_seed(client, project_id, "Snapshot delete candidate")
+
+    first = client.post(f"/api/v1/projects/{project_id}/datasets")
+    second = client.post(f"/api/v1/projects/{project_id}/datasets")
+    assert first.status_code == 201, first.text
+    assert second.status_code == 201, second.text
+    assert first.json()["version"] == 1
+    assert second.json()["version"] == 2
+    first_path = Path(first.json()["canonicalPath"])
+
+    deleted = client.delete(f"/api/v1/datasets/{first.json()['id']}")
+    assert deleted.status_code == 200, deleted.text
+    assert not first_path.exists()
+    assert client.get(f"/api/v1/datasets/{first.json()['id']}").status_code == 404
+
+    third = client.post(f"/api/v1/projects/{project_id}/datasets")
+    assert third.status_code == 201, third.text
+    assert third.json()["version"] == 3
+
+    project = client.get(f"/api/v1/projects/{project_id}").json()
+    assert project["snapshotCount"] == 2
+
+
+def test_artifact_download_returns_zip(
+    client: TestClient,
+    project_factory,
+    tmp_path: Path,
+) -> None:
+    project_id, _, _ = project_factory()
+    artifact_dir = tmp_path / "checkpoint"
+    artifact_dir.mkdir()
+    (artifact_dir / "config.json").write_text('{"model":"test"}', encoding="utf-8")
+
+    db = SessionLocal()
+    try:
+        artifact = ModelArtifact(
+            project_id=project_id,
+            target="laya",
+            name="Test checkpoint",
+            kind="checkpoint",
+            path=str(artifact_dir),
+            metrics={},
+            config={},
+        )
+        db.add(artifact)
+        db.commit()
+        db.refresh(artifact)
+        artifact_id = artifact.id
+    finally:
+        db.close()
+
+    response = client.get(f"/api/v1/artifacts/{artifact_id}/download")
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"] == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+        assert "checkpoint/config.json" in archive.namelist()
+        assert json.loads(archive.read("checkpoint/config.json")) == {"model": "test"}
+
+
+def test_snapshot_delete_blocked_by_active_job(client: TestClient, project_factory) -> None:
+    project_id, _, _ = project_factory()
+    _accept_seed(client, project_id, "Active snapshot")
+    snapshot = client.post(f"/api/v1/projects/{project_id}/datasets")
+    assert snapshot.status_code == 201, snapshot.text
+    snapshot_id = snapshot.json()["id"]
+
+    db = SessionLocal()
+    try:
+        db.add(
+            TrainingJob(
+                project_id=project_id,
+                snapshot_id=snapshot_id,
+                target="laya",
+                mode="fit",
+                device="cpu",
+                status="pending",
+                stage="queued",
+                config={},
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    blocked = client.delete(f"/api/v1/datasets/{snapshot_id}")
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["code"] == "SNAPSHOT_IN_USE"
+
+
+def test_evaluation_artifact_override_validation(client: TestClient, project_factory) -> None:
+    project_id, _, _ = project_factory()
+    _accept_seed(client, project_id, "Evaluation artifact validation")
+    snapshot = client.post(f"/api/v1/projects/{project_id}/datasets")
+    assert snapshot.status_code == 201, snapshot.text
+    snapshot_id = snapshot.json()["id"]
+
+    db = SessionLocal()
+    try:
+        artifact = ModelArtifact(
+            project_id=project_id,
+            target="laya",
+            name="Wrong kind",
+            kind="calibration",
+            path="/tmp/not-used",
+            metrics={},
+            config={},
+        )
+        db.add(artifact)
+        db.commit()
+        db.refresh(artifact)
+        artifact_id = artifact.id
+    finally:
+        db.close()
+
+    missing = client.post(
+        "/api/v1/evaluations",
+        json={
+            "projectId": project_id,
+            "snapshotId": snapshot_id,
+            "models": ["laya-finetuned"],
+            "artifactIds": {"laya-finetuned": "missing"},
+        },
+    )
+    assert missing.status_code == 404
+
+    wrong_kind = client.post(
+        "/api/v1/evaluations",
+        json={
+            "projectId": project_id,
+            "snapshotId": snapshot_id,
+            "models": ["laya-finetuned"],
+            "artifactIds": {"laya-finetuned": artifact_id},
+        },
+    )
+    assert wrong_kind.status_code == 422
+    assert "not a checkpoint" in wrong_kind.json()["error"]["message"]
+
+    unselected = client.post(
+        "/api/v1/evaluations",
+        json={
+            "projectId": project_id,
+            "snapshotId": snapshot_id,
+            "models": ["laya-base"],
+            "artifactIds": {"laya-finetuned": artifact_id},
+        },
+    )
+    assert unselected.status_code == 422
+    assert "unselected model" in unselected.json()["error"]["message"]
+
+
+def test_seed_templates_and_import(client: TestClient, project_factory) -> None:
+    project_id, _, _ = project_factory()
+
+    jsonl_template = client.get(f"/api/v1/projects/{project_id}/seeds/template?format=jsonl")
+    assert jsonl_template.status_code == 200
+    assert "state" in jsonl_template.text
+    assert "seeds-template" in jsonl_template.headers["content-disposition"]
+
+    csv_template = client.get(f"/api/v1/projects/{project_id}/seeds/template?format=csv")
+    assert csv_template.status_code == 200
+    assert csv_template.text.lstrip("\ufeff").startswith("state,labels,language")
+
+    jsonl = "\n".join(
+        [
+            json.dumps(
+                {
+                    "state": {"ticket": "Seed JSONL refund"},
+                    "labels": {"team": "billing"},
+                    "language": "en",
+                }
+            ),
+            json.dumps(
+                {
+                    "state": {"ticket": "Seed JSONL outage"},
+                    "labels": {"team": "technical"},
+                    "language": "en",
+                }
+            ),
+        ]
+    ).encode()
+    imported = client.post(
+        f"/api/v1/projects/{project_id}/seeds/import",
+        files={"file": ("seeds.jsonl", jsonl, "application/x-ndjson")},
+    )
+    assert imported.status_code == 201, imported.text
+    assert imported.json()["imported"] == 2
+    assert imported.json()["seeds"][0]["source"] == "import-jsonl"
+
+    csv_data = (
+        '\ufeffstate,labels,language\n"ticket: CSV seed","{""team"": ""billing""}",zh\n'
+    ).encode()
+    imported_csv = client.post(
+        f"/api/v1/projects/{project_id}/seeds/import",
+        files={"file": ("seeds.csv", csv_data, "text/csv")},
+    )
+    assert imported_csv.status_code == 201, imported_csv.text
+    assert imported_csv.json()["imported"] == 1
+    assert imported_csv.json()["seeds"][0]["state"] == {"text": "ticket: CSV seed"}
+
+    invalid = client.post(
+        f"/api/v1/projects/{project_id}/seeds/import",
+        files={
+            "file": (
+                "bad.jsonl",
+                b'{"state":{"ticket":"x"},"labels":{"unknown":"x"}}\n',
+                "application/x-ndjson",
+            )
+        },
+    )
+    assert invalid.status_code == 422
+    assert "unknown question keys" in invalid.json()["error"]["message"]
+
+
+def test_playground_validation(client: TestClient, project_factory) -> None:
+    missing_project = client.post(
+        "/api/v1/playground/run",
+        json={"projectId": "missing", "model": "laya-base", "state": {"ticket": "x"}},
+    )
+    assert missing_project.status_code == 404
+
+    empty_project = client.post(
+        "/api/v1/projects",
+        json={"name": "Empty", "domain": "No schema", "languages": ["en"]},
+    )
+    assert empty_project.status_code == 201, empty_project.text
+    no_questions = client.post(
+        "/api/v1/playground/run",
+        json={
+            "projectId": empty_project.json()["id"],
+            "model": "laya-base",
+            "state": {"ticket": "x"},
+        },
+    )
+    assert no_questions.status_code == 422
+    assert "at least one question" in no_questions.json()["error"]["message"]
+
+    project_id, _, _ = project_factory()
+    empty_state = client.post(
+        "/api/v1/playground/run",
+        json={"projectId": project_id, "model": "laya-base", "state": {}},
+    )
+    assert empty_state.status_code == 422
+
+    unsupported = client.post(
+        "/api/v1/playground/run",
+        json={"projectId": project_id, "model": "unknown", "state": {"ticket": "x"}},
+    )
+    assert unsupported.status_code == 422
+
+    runtime_missing = client.post(
+        "/api/v1/playground/run",
+        json={"projectId": project_id, "model": "laya-base", "state": {"ticket": "x"}},
+    )
+    assert runtime_missing.status_code == 400
+    assert "runtime" in runtime_missing.json()["error"]["message"].lower()
+
+    custom_questions = client.post(
+        "/api/v1/playground/run",
+        json={
+            "model": "laya-base",
+            "state": "A hamburger is a sandwich.",
+            "questions": [
+                {
+                    "key": "is_sandwich",
+                    "type": "noul",
+                    "instructions": "Is a hamburger a sandwich?",
+                    "criteria": {"true": "Fits the definition", "false": "Does not fit"},
+                }
+            ],
+        },
+    )
+    assert custom_questions.status_code == 400
+    assert "runtime" in custom_questions.json()["error"]["message"].lower()
+
+    missing_options = client.post(
+        "/api/v1/playground/run",
+        json={
+            "model": "laya-base",
+            "state": "x",
+            "questions": [{"key": "color", "type": "choice", "instructions": "Which?"}],
+        },
+    )
+    assert missing_options.status_code == 422
+    assert "needs options" in missing_options.json()["error"]["message"]
+
+
+def test_generation_preview_includes_advanced_options(client: TestClient, project_factory) -> None:
+    project_id, _, _ = project_factory()
+    defaults = client.get(f"/api/v1/projects/{project_id}/generation-prompt-defaults")
+    assert defaults.status_code == 200, defaults.text
+    assert "{{schema_json}}" in defaults.json()["user"]
+    assert "custom_prompt" in defaults.json()["placeholders"]
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/generation-preview",
+        json={
+            "count": 5,
+            "languages": ["en"],
+            "teacher": "none",
+            "customPrompt": "Prefer short, realistic support tickets.",
+            "systemPromptTemplate": "System for {{project_name}} in {{language}}.",
+            "userPromptTemplate": (
+                "Generate {{count}} items. Schema: {{schema_json}}. "
+                "{{default_user}} Extra: {{custom_prompt}}"
+            ),
+            "llm": {"temperature": 0.2, "thinkBudget": 512, "thinkLevel": "medium"},
+        },
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["batchSize"] == 5
+    assert data["body"]["temperature"] == 0.2
+    assert data["body"]["reasoning"]["max_tokens"] == 512
+    assert data["body"]["reasoning_effort"] == "medium"
+    assert data["body"]["messages"][0]["content"].startswith("System for Support")
+    assert "Generate 5 items." in data["body"]["messages"][1]["content"]
+    assert "Prefer short, realistic support tickets." in data["body"]["messages"][1]["content"]
+    assert data["body"]["response_format"] == {"type": "json_object"}
+
+    unknown = client.post(
+        f"/api/v1/projects/{project_id}/generation-preview",
+        json={
+            "count": 5,
+            "teacher": "none",
+            "userPromptTemplate": "Generate {{unknown_placeholder}}",
+        },
+    )
+    assert unknown.status_code == 422
+    assert "Unknown prompt placeholders" in unknown.json()["error"]["message"]
