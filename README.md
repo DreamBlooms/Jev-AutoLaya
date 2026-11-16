@@ -4,6 +4,8 @@
 
 **AutoLaya** is a local-first tool for building domain decision models. It turns a domain description and a few real examples into a Laya or GLiNER model that you can train, evaluate, and deploy yourself.
 
+<img width="1920" height="980" alt="img-welcome" src="https://github.com/user-attachments/assets/f63323a5-e757-4aee-a820-2f9b48d2a4f2" />
+
 ```text
 domain description / seed examples
         → LLM-generated domain text
@@ -14,6 +16,8 @@ domain description / seed examples
         → evaluate on held-out rows
         → deploy a local decision API
 ```
+
+<img width="1920" height="980" alt="img-s1" src="https://github.com/user-attachments/assets/4f994a38-d2a6-4035-a828-7f3b90d77a9b" />
 
 Everything happens in one web workspace. You do not need to write training scripts or send business data to a managed training platform.
 
