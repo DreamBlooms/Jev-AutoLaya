@@ -43,6 +43,13 @@
 - 16 GB 内存；训练建议 32 GB+
 - GPU 可选：NVIDIA CUDA 或 AMD ROCm；CPU 也能运行 Fit 和推理
 
+拉取仓库：
+
+```bash
+git clone https://github.com/DreamBlooms/Jev-AutoLaya.git
+cd Jev-AutoLaya
+```
+
 安装并启动：
 
 ```bash
@@ -51,6 +58,14 @@
 ./deploy.sh setup-gliner   # 需要 GLiNER 时执行
 ./deploy.sh start
 ```
+
+### 交给你的 Agent
+
+也可以把仓库交给 Agent。让它先阅读 [SKILL.md](SKILL.md)，并使用类似下面的提示词：
+
+> 先阅读 `SKILL.md`，然后帮我部署 AutoLaya，并用真实样例完成 Schema、数据生成、审核、数据集、训练、评估、Playground 测试和部署。遇到破坏性操作或需要更多样例时先停下来问我。
+
+Skill 中包含操作规则、安全检查、文档索引和完整工作流。
 
 打开 <http://localhost:8000>。API 文档位于 <http://localhost:8000/docs>。
 

@@ -27,6 +27,16 @@ Docs map:
 Chinese docs mirror these paths under `docs/guide/` and `docs/API_ZH.md`.
 
 
+## Hand This Repository to Your Agent
+
+This repository is designed to be handed to an agent together with this `SKILL.md` file.
+
+Give the agent the repository and a prompt such as:
+
+> Read `SKILL.md` first, then help me deploy AutoLaya and build a domain decision model from real examples through Schema, generation, review, dataset creation, training, evaluation, Playground testing, and deployment. Stop and ask before destructive changes or when you need more examples.
+
+The agent should use this skill for operating rules, the docs map for details, and the user's real use case and samples for the actual project.
+
 ## Understand the Real Use Case First
 
 Before creating a project, Schema, or generation job, make sure you understand the user's actual use case:

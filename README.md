@@ -43,6 +43,13 @@ Requirements:
 - 16 GB RAM; 32 GB+ recommended for training
 - Optional GPU: NVIDIA CUDA or AMD ROCm; CPU works for Fit and inference
 
+Clone the repository:
+
+```bash
+git clone https://github.com/DreamBlooms/Jev-AutoLaya.git
+cd Jev-AutoLaya
+```
+
 Install and start:
 
 ```bash
@@ -51,6 +58,14 @@ Install and start:
 ./deploy.sh setup-gliner   # only when using GLiNER
 ./deploy.sh start
 ```
+
+### Hand It to Your Agent
+
+You can also give the repository to an agent. Point it to [SKILL.md](SKILL.md) and use a prompt like:
+
+> Read `SKILL.md` first, then help me deploy AutoLaya and build a domain decision model from real examples through Schema, generation, review, dataset creation, training, evaluation, Playground testing, and deployment. Stop and ask before destructive changes or when you need more examples.
+
+The skill contains operating rules, safety checks, the docs map, and the end-to-end workflow.
 
 Open <http://localhost:8000>. API docs are at <http://localhost:8000/docs>.
 
