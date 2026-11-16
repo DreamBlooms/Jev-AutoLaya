@@ -276,7 +276,21 @@
     "glinerSetupHint": "Run ./deploy.sh setup-gliner and set GLINER_ENABLED=true.",
     "guideTitle": "Product guide",
     "guideHint": "Replay the full walkthrough from Schema design to training completion.",
-    "showGuide": "Open product guide"
+    "showGuide": "Open product guide",
+    "runtimeHint": "Current device, runtimes, and local data location.",
+    "hardwareTitle": "Hardware & GPU",
+    "hardwareHint": "Devices available for training and inference.",
+    "noGpu": "No dedicated GPU detected. Using CPU, or the driver is not installed.",
+    "gpuMemory": "VRAM",
+    "gpuMemoryUnavailable": "VRAM information is unavailable",
+    "gpuDriver": "Driver",
+    "gpuDetailsUnavailable": "A {{backend}} device was detected, but detailed hardware information is unavailable.",
+    "providersTitle": "Model APIs",
+    "preferencesTitle": "Interface & guide",
+    "cores": "cores",
+    "memoryAvailable": "Available RAM",
+    "modelsDir": "Model directory",
+    "artifactDir": "Fine-tune output directory"
   },
   "errors": {
     "load": "Could not load data",

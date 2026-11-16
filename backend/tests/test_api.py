@@ -12,6 +12,12 @@ def test_config_and_device(client: TestClient) -> None:
     assert data["targets"] == ["laya"]
     assert data["reservedTargets"] == ["gliner"]
     assert "cpu" in data["availableDevices"]
+    assert isinstance(data["gpuDevices"], list)
+    assert data["cpu"]["name"]
+    assert "logicalCores" in data["cpu"]
+    assert "totalMb" in data["memory"]
+    assert data["modelsDir"].endswith("/models")
+    assert data["artifactDir"]
     assert data["llmModel"] == "deepseek-flash"
 
     updated = client.post("/api/v1/config/device", json={"device": "cpu"})

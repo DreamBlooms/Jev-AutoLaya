@@ -276,7 +276,21 @@
     "glinerSetupHint": "运行 ./deploy.sh setup-gliner，并设置 GLINER_ENABLED=true。",
     "guideTitle": "使用引导",
     "guideHint": "重新查看从定义结构到训练完成的全流程演示。",
-    "showGuide": "查看使用引导"
+    "showGuide": "查看使用引导",
+    "runtimeHint": "当前设备、运行时和本地数据位置。",
+    "hardwareTitle": "硬件与 GPU",
+    "hardwareHint": "训练和推理可用的设备信息。",
+    "noGpu": "未检测到独立 GPU。当前使用 CPU，或驱动未安装。",
+    "gpuMemory": "显存",
+    "gpuMemoryUnavailable": "显存信息不可用",
+    "gpuDriver": "驱动",
+    "gpuDetailsUnavailable": "已检测到 {{backend}} 设备，但无法读取详细硬件信息。",
+    "providersTitle": "模型 API",
+    "preferencesTitle": "界面与引导",
+    "cores": "核心",
+    "memoryAvailable": "可用内存",
+    "modelsDir": "模型目录",
+    "artifactDir": "微调输出目录"
   },
   "errors": {
     "load": "加载数据失败",

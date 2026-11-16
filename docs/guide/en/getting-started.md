@@ -167,7 +167,7 @@ Check:
 - `layaRuntimeReady`
 - `glinerRuntimeReady`
 
-The Settings page also shows these values.
+The Settings page also shows these values, plus CPU, RAM, data directory, model directory, fine-tune output directory, GPU name, CUDA/ROCm backend, VRAM, driver, and compute capability.
 
 ## 6. First Use
 

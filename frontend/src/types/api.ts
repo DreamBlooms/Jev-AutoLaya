@@ -1,10 +1,33 @@
 export type QuestionType = "choice" | "noul" | "score";
 export type SampleStatus = "pending" | "accepted" | "rejected";
 
+export interface CpuInfo {
+  name: string;
+  logicalCores: number | null;
+}
+
+export interface MemoryInfo {
+  totalMb: number | null;
+  availableMb: number | null;
+}
+
+export interface GpuDevice {
+  vendor: string;
+  backend: string;
+  name: string;
+  memoryTotalMb: number | null;
+  memoryUsedMb: number | null;
+  driver: string | null;
+  computeCapability: string | null;
+}
+
 export interface RuntimeConfig {
   device: string;
   devicePreference: string;
   availableDevices: string[];
+  gpuDevices: GpuDevice[];
+  cpu: CpuInfo;
+  memory: MemoryInfo;
   llmConfigured: boolean;
   llmProvider: string;
   llmBaseUrl: string;
@@ -25,6 +48,8 @@ export interface RuntimeConfig {
   glinerVenv: string;
   glinerModels: Record<string, string>;
   dataDir: string;
+  modelsDir: string;
+  artifactDir: string;
 }
 
 export interface Project {

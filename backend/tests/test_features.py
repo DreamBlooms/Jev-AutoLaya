@@ -427,3 +427,42 @@ def test_generation_preview_includes_advanced_options(client: TestClient, projec
     )
     assert unknown.status_code == 422
     assert "Unknown prompt placeholders" in unknown.json()["error"]["message"]
+
+
+def test_nvidia_gpu_detection(monkeypatch) -> None:
+    from app.services import gpu
+
+    monkeypatch.setattr(
+        gpu,
+        "_run",
+        lambda command: "NVIDIA GeForce RTX 4090, 24564, 1024, 580.65, 8.9",
+    )
+    devices = gpu.detect_gpu_devices()
+    assert devices[0]["backend"] == "cuda"
+    assert devices[0]["name"] == "NVIDIA GeForce RTX 4090"
+    assert devices[0]["memory_total_mb"] == 24564
+    assert devices[0]["memory_used_mb"] == 1024
+    assert devices[0]["compute_capability"] == "8.9"
+
+
+def test_rocm_gpu_detection(monkeypatch) -> None:
+    from app.services import gpu
+
+    monkeypatch.setattr(gpu, "_nvidia_devices", lambda: [])
+    payload = json.dumps(
+        {
+            "card0": {
+                "VRAM Total Memory (B)": str(2 * gpu.MIB),
+                "VRAM Total Used Memory (B)": str(gpu.MIB // 2),
+                "Card Series": "AMD Radeon Graphics",
+                "Card Vendor": "AMD",
+                "GFX Version": "gfx1151",
+            },
+            "system": {"Driver version": "7.0.0"},
+        }
+    )
+    monkeypatch.setattr(gpu, "_run", lambda command: payload)
+    devices = gpu.detect_gpu_devices()
+    assert devices[0]["backend"] == "rocm"
+    assert devices[0]["memory_total_mb"] == 2
+    assert devices[0]["compute_capability"] == "gfx1151"

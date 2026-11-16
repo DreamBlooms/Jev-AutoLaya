@@ -6,8 +6,10 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from app.core.config import get_settings
+from app.core.config import ROOT_DIR, get_settings
 from app.core.errors import ApiError
+from app.services.gpu import detect_gpu_devices
+from app.services.system_info import cpu_info, memory_info
 
 DEVICE_PRIORITY = ("cuda", "rocm", "mps", "cpu")
 ALLOWED_DEVICES = {"auto", *DEVICE_PRIORITY}
@@ -81,6 +83,9 @@ def runtime_summary() -> dict[str, Any]:
         "device": resolve_device(preference),
         "device_preference": preference,
         "available_devices": available_devices(),
+        "gpu_devices": detect_gpu_devices(),
+        "cpu": cpu_info(),
+        "memory": memory_info(),
         "llm_configured": bool(settings.llm_api_key),
         "llm_provider": settings.llm_provider,
         "llm_base_url": settings.llm_base_url,
@@ -110,4 +115,6 @@ def runtime_summary() -> dict[str, Any]:
             "multilingual": settings.laya_multi_model,
         },
         "data_dir": str(settings.data_dir),
+        "models_dir": str(ROOT_DIR / "models"),
+        "artifact_dir": str(settings.resolved_artifact_dir),
     }

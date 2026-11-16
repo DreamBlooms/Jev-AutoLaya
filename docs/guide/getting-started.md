@@ -167,7 +167,7 @@ curl -s http://localhost:8000/api/v1/config
 - `layaRuntimeReady`
 - `glinerRuntimeReady`
 
-“设置”页也会显示这些信息。
+“设置”页也会显示这些信息，并展示 CPU、内存、数据目录、模型目录、微调输出目录，以及 GPU 名称、CUDA/ROCm 后端、显存、驱动和计算能力。
 
 ## 6. 第一次使用
 

@@ -21,6 +21,28 @@ Returns the current runtime configuration.
   "data": {
     "device": "cpu",
     "availableDevices": ["cpu", "cuda"],
+    "cpu": {
+      "name": "AMD Ryzen 9 7950X 16-Core Processor",
+      "logicalCores": 32
+    },
+    "memory": {
+      "totalMb": 65536,
+      "availableMb": 32768
+    },
+    "dataDir": "/path/to/AutoLaya/data",
+    "modelsDir": "/path/to/AutoLaya/models",
+    "artifactDir": "/path/to/AutoLaya/data/artifacts",
+    "gpuDevices": [
+      {
+        "vendor": "NVIDIA",
+        "backend": "cuda",
+        "name": "NVIDIA GeForce RTX 4090",
+        "memoryTotalMb": 24564,
+        "memoryUsedMb": 1024,
+        "driver": "580.65",
+        "computeCapability": "8.9"
+      }
+    ],
     "llmConfigured": true,
     "llmProvider": "openai-compatible",
     "llmBaseUrl": "https://api.deepseek.com",
