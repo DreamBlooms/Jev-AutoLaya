@@ -4,6 +4,8 @@
 
 **AutoLaya** 是一个本地优先的领域决策模型构建工具。它把领域描述和少量真实样例，变成可以自己训练、评估并部署的 Laya 或 GLiNER 决策模型。
 
+<img width="1920" height="980" alt="图片" src="https://github.com/user-attachments/assets/efc029f7-eb6e-4da3-a964-c6ca22aebb05" />
+
 ```text
 领域描述 / 种子样例
         → LLM 生成领域文本
@@ -14,6 +16,8 @@
         → 在留出集上评估
         → 部署本地决策 API
 ```
+
+<img width="1920" height="980" alt="图片" src="https://github.com/user-attachments/assets/7a89e6c0-69d0-483d-9364-891d5963b6e2" />
 
 整个流程都在一个 Web 工作台里完成，不需要写训练脚本，也不需要把业务数据发送到托管训练平台。
 
