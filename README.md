@@ -17,7 +17,8 @@ domain description / seed examples
         → deploy a local decision API
 ```
 
-<img width="1920" height="980" alt="img-s1" src="https://github.com/user-attachments/assets/4f994a38-d2a6-4035-a828-7f3b90d77a9b" />
+<img width="1920" height="980" alt="img-s1" src="https://github.com/user-attachments/assets/5432c848-f52b-4a15-aaf4-a36709e6e70f" />
+
 
 Everything happens in one web workspace. You do not need to write training scripts or send business data to a managed training platform.
 
