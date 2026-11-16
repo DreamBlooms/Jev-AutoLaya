@@ -17,7 +17,7 @@
         → 部署本地决策 API
 ```
 
-<img width="1920" height="980" alt="图片" src="https://github.com/user-attachments/assets/7a89e6c0-69d0-483d-9364-891d5963b6e2" />
+<img width="1920" height="980" alt="图片" src="https://github.com/user-attachments/assets/a3eb62f5-155b-40ca-babd-80e9ef55f931" />
 
 整个流程都在一个 Web 工作台里完成，不需要写训练脚本，也不需要把业务数据发送到托管训练平台。
 
