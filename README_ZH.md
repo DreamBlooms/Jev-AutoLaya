@@ -63,7 +63,7 @@ cd Jev-AutoLaya
 
 也可以把仓库交给 Agent。让它先阅读 [SKILL.md](SKILL.md)，并使用类似下面的提示词：
 
-> 先阅读 `SKILL.md`，然后帮我部署 AutoLaya，并用真实样例完成 Schema、数据生成、审核、数据集、训练、评估、Playground 测试和部署。遇到破坏性操作或需要更多样例时先停下来问我。
+> 先阅读 `SKILL.md`（https://raw.githubusercontent.com/DreamBlooms/Jev-AutoLaya/refs/heads/main/SKILL.md），然后帮我部署 AutoLaya，并用真实样例完成 Schema、数据生成、审核、数据集、训练、评估、Playground 测试和部署。遇到破坏性操作或需要更多样例时先停下来问我。
 
 Skill 中包含操作规则、安全检查、文档索引和完整工作流。
 
